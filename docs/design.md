@@ -38,4 +38,33 @@
 - 3. Pushing notifications to users. Clients fetch anomalies by request. [confirm]
 
 ## 2. API design
-(later)
+
+### Error format (used by every endpoint)
+(Write the one JSON shape every error will use.)
+
+## 2. API design
+
+### Error format (used by every endpoint)
+{ "error": { "code": "BUILDING_NOT_FOUND", "message": "No building with id B007." } }
+
+### Endpoints
+
+| # | Method | Path | Who can call | Client sends | Response (success) | Errors | Idempotent? |
+|---|--------|------|--------------|--------------|--------------------|--------|-------------|
+| 1 | POST | `/v1/buildings` | Admin | Body: `building_id`, `name` | `201` the new building | 401; 403 not admin; 409 id already exists; 422 invalid field | No |
+| 2 | GET | `/v1/buildings` | Admin (all) or Viewer (own only) | Query: `page`, `limit` | `200` paginated list of buildings | 401; 422 bad page/limit | Yes |
+| 3 | GET | `/v1/buildings/{building_id}` | Admin or that building's Viewer | Path: `building_id` | `200` one building | 401; 403 not their building; 404 no such building | Yes |
+| 4 | POST | `/v1/buildings/{building_id}/meters` | Admin | Body: `meter_id` | `201` the new meter | 401; 403; 404 no such building; 409 meter id exists; 422 | No |
+| 5 | GET | `/v1/buildings/{building_id}/meters` | Admin or that Viewer | Path: `building_id` | `200` list of meters | 401; 403; 404 | Yes |
+| 6 | POST | `/v1/meters/{meter_id}/readings` | Simulator or Admin | Body: list of `{timestamp, power_kw}` (max 288) | `201` `{stored: n, duplicates_ignored: m}` | 401; 403; 404 no such meter; 409 same meter and timestamp but a different value; 422 invalid timestamp or value | Yes, by design (duplicates ignored) |
+| 7 | GET | `/v1/buildings/{building_id}/readings` | Admin or that Viewer | Query: `from`, `to`, `page`, `limit` | `200` paginated readings, oldest first | 401; 403; 404; 422 (`from` after `to`, bad date) | Yes |
+| 8 | GET | `/v1/buildings/{building_id}/consumption` | Admin or that Viewer | Query: `from`, `to`, `granularity` (`day` or `month`) | `200` list of `{period, energy_kwh, cost_rupees}` | 401; 403; 404; 422 | Yes |
+| 9 | GET | `/v1/buildings/{building_id}/forecasts/power` | Admin or that Viewer | Query: `at` (date and time in the future) | `200` `{building_id, at, power_kw}` | 401; 403; 404; 409 too little history; 422 bad or past date | Yes |
+| 10 | GET | `/v1/buildings/{building_id}/forecasts/peak` | Admin or that Viewer | Query: `date` | `200` `{date, peak_power_kw, expected_at}` | 401; 403; 404; 409; 422 | Yes |
+| 11 | GET | `/v1/buildings/{building_id}/forecasts/energy` | Admin or that Viewer | Query: `from`, `to` | `200` `{from, to, energy_kwh}` | 401; 403; 404; 409; 422 | Yes |
+| 12 | GET | `/v1/buildings/{building_id}/bill-estimates` | Admin or that Viewer | Query: `month` (YYYY-MM) | `200` `{month, energy_kwh, bill_rupees, suggestions[], savings_rupees}` | 401; 403; 404; 409; 422 | Yes |
+| 13 | GET | `/v1/buildings/{building_id}/anomalies` | Admin or that Viewer | Query: `from`, `to`, `page`, `limit` | `200` paginated `{meter_id, timestamp, power_kw}` | 401; 403; 404; 422 | Yes |
+| 14 | GET | `/v1/health` | Anyone (no token) | none | `200` `{status: "ok"}` | none | Yes |
+
+### Decisions
+(see the list in my reply: confirm or change each one)
